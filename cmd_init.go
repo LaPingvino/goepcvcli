@@ -12,13 +12,18 @@ var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Create a starter cv.json from the built-in template",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		path := "cv.json"
+		path := "output/cv.json"
 		if len(args) > 0 {
 			path = args[0]
 		}
 
 		if _, err := os.Stat(path); err == nil {
 			return fmt.Errorf("%s already exists — use a different name or delete it first", path)
+		}
+
+		// Ensure output directory exists
+		if dir := dirOf(path); dir != "." {
+			os.MkdirAll(dir, 0755)
 		}
 
 		data, err := json.MarshalIndent(templateCV(), "", "  ")

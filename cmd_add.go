@@ -238,7 +238,7 @@ func init() {
 	addWorkCmd.Flags().String("country", "", "country")
 	addWorkCmd.Flags().String("tags", "", "comma-separated tags for tailoring")
 	addWorkCmd.Flags().IntP("position", "p", -1, "insert position (0=top, default=end)")
-	addWorkCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "input JSON file")
+	addWorkCmd.Flags().StringVarP(&inputFile, "input", "f", "output/cv.json", "input JSON file")
 
 	// Education flags
 	addEducationCmd.Flags().String("title", "", "degree/certificate title (required)")
@@ -249,7 +249,7 @@ func init() {
 	addEducationCmd.Flags().String("location", "", "city")
 	addEducationCmd.Flags().String("country", "", "country")
 	addEducationCmd.Flags().String("level", "", "EQF level or national classification")
-	addEducationCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "input JSON file")
+	addEducationCmd.Flags().StringVarP(&inputFile, "input", "f", "output/cv.json", "input JSON file")
 
 	// Language flags
 	addLanguageCmd.Flags().String("name", "", "language name (required)")
@@ -259,13 +259,13 @@ func init() {
 	addLanguageCmd.Flags().String("spoken-production", "", "CEFR level A1-C2")
 	addLanguageCmd.Flags().String("spoken-interaction", "", "CEFR level A1-C2")
 	addLanguageCmd.Flags().String("writing", "", "CEFR level A1-C2")
-	addLanguageCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "input JSON file")
+	addLanguageCmd.Flags().StringVarP(&inputFile, "input", "f", "output/cv.json", "input JSON file")
 
 	// Skill — inputFile via persistent flag on parent
-	addSkillCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "input JSON file")
+	addSkillCmd.Flags().StringVarP(&inputFile, "input", "f", "output/cv.json", "input JSON file")
 
 	// Contact
-	addContactCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "input JSON file")
+	addContactCmd.Flags().StringVarP(&inputFile, "input", "f", "output/cv.json", "input JSON file")
 
 	addCmd.AddCommand(addWorkCmd, addEducationCmd, addLanguageCmd, addSkillCmd, addContactCmd)
 	rootCmd.AddCommand(addCmd)

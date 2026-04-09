@@ -1,7 +1,8 @@
 # goepcvcli — Europass CV CLI Tool
 
 Go CLI for managing, tailoring, and generating Europass-format CVs.
-CV data is stored as `cv.json` — all modifications go through the CLI, no editor needed.
+CV data is stored as `output/cv.json` — all modifications go through the CLI, no editor needed.
+All personal data lives in the `output/` directory (gitignored).
 
 ## Interactive Mode
 
@@ -43,11 +44,14 @@ goepcvcli remove language Afrikaans
 # Tailor for a specific job (does NOT modify cv.json)
 goepcvcli tailor --tags dev,go,architecture \
   --headline "Go Developer | Systems Architecture" \
-  --output dev-cv.json --pdf dev-cv.pdf
+  --output output/dev-cv.json --pdf output/dev-cv.pdf
 
-# Generate PDF from any JSON
-goepcvcli generate -f cv.json -o cv.pdf
-goepcvcli generate -f dev-cv.json -o dev-cv.pdf
+# Generate output from any JSON
+goepcvcli generate                                              # default: output/cv.json -> output/cv.pdf
+goepcvcli generate -f output/dev-cv.json -o output/dev-cv.pdf   # specific files
+goepcvcli generate -f output/cv.json -o output/cv.xml --format xml   # standalone Europass XML
+goepcvcli generate -f output/cv.json -o output/cv.pdf --format plain # PDF without embedded XML
+goepcvcli generate -f output/cv.json -o output/cv-de.pdf --lang de   # German labels
 ```
 
 ## Sections for show/set
@@ -63,10 +67,17 @@ Work entries have tags for filtering with `tailor`. Common tags:
 - `content`, `web`, `process` — content/web roles
 - `devops`, `sql` — ops roles
 
+## i18n
+
+Set `"lang": "de"` in the CV JSON or use `--lang de` on generate.
+Supported: all 24 EU languages (bg, cs, da, de, el, en, es, et, fi, fr, ga, hr,
+hu, it, lt, lv, mt, nl, pl, pt, ro, sk, sl, sv) plus eo and tok.
+
 ## PDF Generation
 
 Uses DejaVu Sans Condensed (UTF-8) from `/usr/share/fonts/TTF/`.
 Europass XML is embedded as a PDF attachment for machine readability.
+Use `--format xml` to export standalone XML, `--format plain` for PDF without XML.
 
 ## LLM Workflow
 
@@ -78,3 +89,4 @@ This tool is designed for LLM-driven CV management. Typical flow:
 
 All commands use flags (no interactive prompts needed).
 Use `--json` on show for machine-readable output.
+All files default to `output/` directory — use `-f` to override.

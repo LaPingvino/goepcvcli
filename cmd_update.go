@@ -186,7 +186,7 @@ func init() {
 	updateWorkCmd.Flags().String("location", "", "city")
 	updateWorkCmd.Flags().String("country", "", "country")
 	updateWorkCmd.Flags().String("tags", "", "comma-separated tags")
-	updateWorkCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "input JSON file")
+	updateWorkCmd.Flags().StringVarP(&inputFile, "input", "f", "output/cv.json", "input JSON file")
 
 	// Education update flags
 	updateEducationCmd.Flags().String("title", "", "degree/certificate title")
@@ -197,7 +197,7 @@ func init() {
 	updateEducationCmd.Flags().String("location", "", "city")
 	updateEducationCmd.Flags().String("country", "", "country")
 	updateEducationCmd.Flags().String("level", "", "qualification level")
-	updateEducationCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "input JSON file")
+	updateEducationCmd.Flags().StringVarP(&inputFile, "input", "f", "output/cv.json", "input JSON file")
 
 	// Language update flags
 	updateLanguageCmd.Flags().String("all", "", "set all CEFR levels at once")
@@ -206,7 +206,7 @@ func init() {
 	updateLanguageCmd.Flags().String("spoken-production", "", "CEFR level")
 	updateLanguageCmd.Flags().String("spoken-interaction", "", "CEFR level")
 	updateLanguageCmd.Flags().String("writing", "", "CEFR level")
-	updateLanguageCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "input JSON file")
+	updateLanguageCmd.Flags().StringVarP(&inputFile, "input", "f", "output/cv.json", "input JSON file")
 
 	updateCmd.AddCommand(updateWorkCmd, updateEducationCmd, updateLanguageCmd)
 	rootCmd.AddCommand(updateCmd)

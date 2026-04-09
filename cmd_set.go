@@ -4,9 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
+
+func dirOf(path string) string {
+	return filepath.Dir(path)
+}
 
 var setCmd = &cobra.Command{
 	Use:   "set [field] [value]",
@@ -84,6 +89,9 @@ func loadCV(path string) (*CV, error) {
 }
 
 func saveCV(path string, cv *CV) error {
+	if dir := dirOf(path); dir != "." {
+		os.MkdirAll(dir, 0755)
+	}
 	data, err := json.MarshalIndent(cv, "", "  ")
 	if err != nil {
 		return err
@@ -92,6 +100,6 @@ func saveCV(path string, cv *CV) error {
 }
 
 func init() {
-	setCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "input JSON file")
+	setCmd.Flags().StringVarP(&inputFile, "input", "f", "output/cv.json", "input JSON file")
 	rootCmd.AddCommand(setCmd)
 }

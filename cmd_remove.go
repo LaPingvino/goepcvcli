@@ -156,11 +156,11 @@ var removeContactCmd = &cobra.Command{
 }
 
 func init() {
-	removeWorkCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "input JSON file")
-	removeEducationCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "input JSON file")
-	removeLanguageCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "input JSON file")
-	removeSkillCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "input JSON file")
-	removeContactCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "input JSON file")
+	removeWorkCmd.Flags().StringVarP(&inputFile, "input", "f", "output/cv.json", "input JSON file")
+	removeEducationCmd.Flags().StringVarP(&inputFile, "input", "f", "output/cv.json", "input JSON file")
+	removeLanguageCmd.Flags().StringVarP(&inputFile, "input", "f", "output/cv.json", "input JSON file")
+	removeSkillCmd.Flags().StringVarP(&inputFile, "input", "f", "output/cv.json", "input JSON file")
+	removeContactCmd.Flags().StringVarP(&inputFile, "input", "f", "output/cv.json", "input JSON file")
 
 	removeCmd.AddCommand(removeWorkCmd, removeEducationCmd, removeLanguageCmd, removeSkillCmd, removeContactCmd)
 	rootCmd.AddCommand(removeCmd)

@@ -118,7 +118,7 @@ func hasAnyTag(entryTags, filterTags []string) bool {
 }
 
 func init() {
-	tailorCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "base CV JSON file")
+	tailorCmd.Flags().StringVarP(&inputFile, "input", "f", "output/cv.json", "base CV JSON file")
 	tailorCmd.Flags().StringP("output", "o", "", "output JSON file (required)")
 	tailorCmd.Flags().String("pdf", "", "also generate PDF")
 	tailorCmd.Flags().String("headline", "", "override headline")

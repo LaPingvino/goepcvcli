@@ -68,8 +68,8 @@ Examples:
 }
 
 func init() {
-	generateCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "input JSON file")
-	generateCmd.Flags().StringVarP(&outputFile, "output", "o", "cv.pdf", "output PDF file")
+	generateCmd.Flags().StringVarP(&inputFile, "input", "f", "output/cv.json", "input JSON file")
+	generateCmd.Flags().StringVarP(&outputFile, "output", "o", "output/cv.pdf", "output PDF file")
 	generateCmd.Flags().String("lang", "", "override CV language (en, de, nl, pt, fr, es)")
 	generateCmd.Flags().String("format", "pdf", "output format: pdf (with XML), xml, plain (PDF without XML)")
 	rootCmd.AddCommand(generateCmd)
