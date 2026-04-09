@@ -383,11 +383,18 @@ func (r *renderer) renderWork(w *Work) {
 
 		r.setBody("B", fs+1)
 		pdf.SetTextColor(0, 0, 0)
-		pdf.CellFormat(0, 5.5, w.Title, "", 0, "L", false, 0, "")
+		titleW := pdf.GetStringWidth(w.Title) + 2
+		pdf.CellFormat(titleW, 5.5, w.Title, "", 0, "L", false, 0, "")
 		aR, aG, aB := r.accent()
 		r.setBody("", fs+1)
 		pdf.SetTextColor(aR, aG, aB)
-		pdf.CellFormat(0, 5.5, "  "+w.Employer, "", 1, "L", false, 0, "")
+		remaining := contentWidth - titleW
+		if remaining < 20 {
+			// Employer doesn't fit on same line — wrap
+			pdf.Ln(5.5)
+			remaining = contentWidth
+		}
+		pdf.CellFormat(remaining, 5.5, w.Employer, "", 1, "L", false, 0, "")
 		pdf.Ln(1)
 
 		if w.Description != "" {
@@ -466,11 +473,17 @@ func (r *renderer) renderEducation(e *Education) {
 
 		r.setBody("B", fs+1)
 		pdf.SetTextColor(0, 0, 0)
-		pdf.CellFormat(0, 5.5, e.Title, "", 0, "L", false, 0, "")
+		titleW := pdf.GetStringWidth(e.Title) + 2
+		pdf.CellFormat(titleW, 5.5, e.Title, "", 0, "L", false, 0, "")
 		aR, aG, aB := r.accent()
 		r.setBody("", fs+1)
 		pdf.SetTextColor(aR, aG, aB)
-		pdf.CellFormat(0, 5.5, "  "+e.Institution, "", 1, "L", false, 0, "")
+		remaining := contentWidth - titleW
+		if remaining < 20 {
+			pdf.Ln(5.5)
+			remaining = contentWidth
+		}
+		pdf.CellFormat(remaining, 5.5, e.Institution, "", 1, "L", false, 0, "")
 
 		if e.Level != "" {
 			r.setBody("I", fs-0.5)
