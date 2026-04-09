@@ -92,6 +92,6 @@ func saveCV(path string, cv *CV) error {
 }
 
 func init() {
-	setCmd.Flags().StringVarP(&inputFile, "input", "i", "cv.json", "input JSON file")
+	setCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "input JSON file")
 	rootCmd.AddCommand(setCmd)
 }

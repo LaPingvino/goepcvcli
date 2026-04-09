@@ -4,6 +4,7 @@ package main
 // but stored as JSON on disk for easy editing and per-job tailoring.
 
 type CV struct {
+	Lang       string      `json:"lang,omitempty"`
 	Personal   Personal    `json:"personal" xml:"learnerInfo>identification"`
 	Headline   string      `json:"headline" xml:"learnerInfo>headline>description"`
 	Experience []Work      `json:"experience" xml:"learnerInfo>workExperience"`

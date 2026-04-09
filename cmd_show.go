@@ -212,7 +212,7 @@ func showSkillsText(cv *CV) {
 
 func init() {
 	showCmd.Flags().StringVarP(&showSection, "section", "s", "", "section to display")
-	showCmd.Flags().StringVarP(&inputFile, "input", "i", "cv.json", "input JSON file")
+	showCmd.Flags().StringVarP(&inputFile, "input", "f", "cv.json", "input JSON file")
 	showCmd.Flags().Bool("json", false, "output as JSON")
 	rootCmd.AddCommand(showCmd)
 }

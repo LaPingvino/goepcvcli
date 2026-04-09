@@ -13,7 +13,19 @@ var rootCmd = &cobra.Command{
 	Long: `A CLI tool for managing Europass-format CVs.
 
 Store your CV as structured JSON, tailor it per job application,
-and generate professional PDFs with embedded Europass XML.`,
+and generate professional PDFs with embedded Europass XML.
+
+Use -i for interactive mode with guided prompts.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if interactive {
+			return interactiveMain()
+		}
+		return cmd.Help()
+	},
+}
+
+func init() {
+	rootCmd.PersistentFlags().BoolVarP(&interactive, "interactive", "i", false, "interactive mode with guided prompts")
 }
 
 func main() {

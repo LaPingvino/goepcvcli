@@ -34,6 +34,8 @@ const (
 )
 
 func generatePDF(cv *CV, output string) error {
+	l := getLabels(cv.Lang)
+
 	pdf := fpdf.New("P", "mm", "A4", fontDir)
 	pdf.SetMargins(marginLeft, marginTop, marginRight)
 	pdf.SetAutoPageBreak(true, 20)
@@ -46,36 +48,36 @@ func generatePDF(cv *CV, output string) error {
 
 	pdf.AddPage()
 
-	renderPersonal(pdf, &cv.Personal)
-	renderSection(pdf, "WORK EXPERIENCE", func() {
+	renderPersonal(pdf, &cv.Personal, l)
+	renderSection(pdf, l.WorkExperience, func() {
 		for _, w := range cv.Experience {
-			renderWork(pdf, &w)
+			renderWork(pdf, &w, l)
 		}
 	})
-	renderSection(pdf, "EDUCATION AND TRAINING", func() {
+	renderSection(pdf, l.Education, func() {
 		for _, e := range cv.Education {
-			renderEducation(pdf, &e)
+			renderEducation(pdf, &e, l)
 		}
 	})
-	renderSection(pdf, "LANGUAGE SKILLS", func() {
-		renderLanguages(pdf, &cv.Languages)
+	renderSection(pdf, l.LanguageSkills, func() {
+		renderLanguages(pdf, &cv.Languages, l)
 	})
-	renderSection(pdf, "DIGITAL SKILLS", func() {
+	renderSection(pdf, l.DigitalSkills, func() {
 		pdf.SetFont(fontFamily, "", 10)
 		pdf.SetTextColor(0, 0, 0)
 		pdf.MultiCell(contentWidth, 5, strings.Join(cv.Digital, "  |  "), "", "L", false)
 		pdf.Ln(3)
 	})
 	if cv.Org != "" || cv.Comm != "" || cv.JobRelated != "" {
-		renderSection(pdf, "ADDITIONAL INFORMATION", func() {
+		renderSection(pdf, l.AdditionalInfo, func() {
 			if cv.Org != "" {
-				renderSubSection(pdf, "ORGANISATIONAL SKILLS", cv.Org)
+				renderSubSection(pdf, l.OrgSkills, cv.Org)
 			}
 			if cv.Comm != "" {
-				renderSubSection(pdf, "COMMUNICATION AND INTERPERSONAL SKILLS", cv.Comm)
+				renderSubSection(pdf, l.CommSkills, cv.Comm)
 			}
 			if cv.JobRelated != "" {
-				renderSubSection(pdf, "JOB-RELATED SKILLS", cv.JobRelated)
+				renderSubSection(pdf, l.JobSkills, cv.JobRelated)
 			}
 		})
 	}
@@ -93,7 +95,58 @@ func generatePDF(cv *CV, output string) error {
 	return pdf.OutputFileAndClose(output)
 }
 
-func renderPersonal(pdf *fpdf.Fpdf, p *Personal) {
+func generatePlainPDF(cv *CV, output string) error {
+	l := getLabels(cv.Lang)
+
+	pdf := fpdf.New("P", "mm", "A4", fontDir)
+	pdf.SetMargins(marginLeft, marginTop, marginRight)
+	pdf.SetAutoPageBreak(true, 20)
+
+	pdf.AddUTF8Font(fontFamily, "", "DejaVuSansCondensed.ttf")
+	pdf.AddUTF8Font(fontFamily, "B", "DejaVuSansCondensed-Bold.ttf")
+	pdf.AddUTF8Font(fontFamily, "I", "DejaVuSansCondensed-Oblique.ttf")
+	pdf.AddUTF8Font(fontFamily, "BI", "DejaVuSansCondensed-BoldOblique.ttf")
+
+	pdf.AddPage()
+
+	renderPersonal(pdf, &cv.Personal, l)
+	renderSection(pdf, l.WorkExperience, func() {
+		for _, w := range cv.Experience {
+			renderWork(pdf, &w, l)
+		}
+	})
+	renderSection(pdf, l.Education, func() {
+		for _, e := range cv.Education {
+			renderEducation(pdf, &e, l)
+		}
+	})
+	renderSection(pdf, l.LanguageSkills, func() {
+		renderLanguages(pdf, &cv.Languages, l)
+	})
+	renderSection(pdf, l.DigitalSkills, func() {
+		pdf.SetFont(fontFamily, "", 10)
+		pdf.SetTextColor(0, 0, 0)
+		pdf.MultiCell(contentWidth, 5, strings.Join(cv.Digital, "  |  "), "", "L", false)
+		pdf.Ln(3)
+	})
+	if cv.Org != "" || cv.Comm != "" || cv.JobRelated != "" {
+		renderSection(pdf, l.AdditionalInfo, func() {
+			if cv.Org != "" {
+				renderSubSection(pdf, l.OrgSkills, cv.Org)
+			}
+			if cv.Comm != "" {
+				renderSubSection(pdf, l.CommSkills, cv.Comm)
+			}
+			if cv.JobRelated != "" {
+				renderSubSection(pdf, l.JobSkills, cv.JobRelated)
+			}
+		})
+	}
+
+	return pdf.OutputFileAndClose(output)
+}
+
+func renderPersonal(pdf *fpdf.Fpdf, p *Personal, l Labels) {
 	// Name
 	pdf.SetFont(fontFamily, "B", 20)
 	pdf.SetTextColor(headerR, headerG, headerB)
@@ -112,16 +165,16 @@ func renderPersonal(pdf *fpdf.Fpdf, p *Personal) {
 
 	var details []string
 	if p.DateOfBirth != "" {
-		details = append(details, "Date of birth: "+p.DateOfBirth)
+		details = append(details, l.DateOfBirth+": "+p.DateOfBirth)
 	}
 	if p.Nationality != "" {
-		details = append(details, "Nationality: "+p.Nationality)
+		details = append(details, l.Nationality+": "+p.Nationality)
 	}
 	if p.Phone != "" {
-		details = append(details, "Phone: "+p.Phone)
+		details = append(details, l.Phone+": "+p.Phone)
 	}
 	if p.Email != "" {
-		details = append(details, "Email: "+p.Email)
+		details = append(details, l.Email+": "+p.Email)
 	}
 	if len(details) > 0 {
 		pdf.MultiCell(contentWidth, 4.5, strings.Join(details, "  |  "), "", "L", false)
@@ -129,7 +182,7 @@ func renderPersonal(pdf *fpdf.Fpdf, p *Personal) {
 
 	var links []string
 	if p.Website != "" {
-		links = append(links, "Website: "+p.Website)
+		links = append(links, l.Website+": "+p.Website)
 	}
 	if p.GitHub != "" {
 		links = append(links, "GitHub: "+p.GitHub)
@@ -145,7 +198,7 @@ func renderPersonal(pdf *fpdf.Fpdf, p *Personal) {
 	}
 
 	if p.Address != "" {
-		pdf.CellFormat(contentWidth, 4.5, "Address: "+p.Address, "", 1, "L", false, 0, "")
+		pdf.CellFormat(contentWidth, 4.5, l.Address+": "+p.Address, "", 1, "L", false, 0, "")
 	}
 	pdf.Ln(5)
 }
@@ -173,7 +226,7 @@ func renderSection(pdf *fpdf.Fpdf, title string, content func()) {
 	pdf.Ln(2)
 }
 
-func renderWork(pdf *fpdf.Fpdf, w *Work) {
+func renderWork(pdf *fpdf.Fpdf, w *Work, l Labels) {
 	// Date range + location
 	pdf.SetFont(fontFamily, "", 9)
 	pdf.SetTextColor(grayR, grayG, grayB)
@@ -181,7 +234,7 @@ func renderWork(pdf *fpdf.Fpdf, w *Work) {
 	if w.To != "" {
 		period += " \u2013 " + w.To
 	} else {
-		period += " - Present"
+		period += " \u2013 " + l.Present
 	}
 	loc := ""
 	if w.Location != "" {
@@ -211,7 +264,7 @@ func renderWork(pdf *fpdf.Fpdf, w *Work) {
 	pdf.Ln(3)
 }
 
-func renderEducation(pdf *fpdf.Fpdf, e *Education) {
+func renderEducation(pdf *fpdf.Fpdf, e *Education, l Labels) {
 	pdf.SetFont(fontFamily, "", 9)
 	pdf.SetTextColor(grayR, grayG, grayB)
 	period := e.From
@@ -237,7 +290,7 @@ func renderEducation(pdf *fpdf.Fpdf, e *Education) {
 	if e.Level != "" {
 		pdf.SetFont(fontFamily, "", 9)
 		pdf.SetTextColor(grayR, grayG, grayB)
-		pdf.CellFormat(contentWidth, 4.5, "Level: "+e.Level, "", 1, "L", false, 0, "")
+		pdf.CellFormat(contentWidth, 4.5, l.Level+": "+e.Level, "", 1, "L", false, 0, "")
 	}
 
 	if e.Description != "" {
@@ -248,20 +301,20 @@ func renderEducation(pdf *fpdf.Fpdf, e *Education) {
 	pdf.Ln(3)
 }
 
-func renderLanguages(pdf *fpdf.Fpdf, l *Languages) {
+func renderLanguages(pdf *fpdf.Fpdf, lang *Languages, l Labels) {
 	// Mother tongue
 	pdf.SetFont(fontFamily, "", 10)
 	pdf.SetTextColor(0, 0, 0)
-	pdf.CellFormat(contentWidth, 5.5, "Mother tongue(s): "+strings.Join(l.MotherTongue, ", "), "", 1, "L", false, 0, "")
+	pdf.CellFormat(contentWidth, 5.5, l.MotherTongue+": "+strings.Join(lang.MotherTongue, ", "), "", 1, "L", false, 0, "")
 	pdf.Ln(2)
 
-	if len(l.Foreign) == 0 {
+	if len(lang.Foreign) == 0 {
 		return
 	}
 
 	pdf.SetFont(fontFamily, "", 9)
 	pdf.SetTextColor(grayR, grayG, grayB)
-	pdf.CellFormat(contentWidth, 4.5, "Other language(s):", "", 1, "L", false, 0, "")
+	pdf.CellFormat(contentWidth, 4.5, l.OtherLanguages+":", "", 1, "L", false, 0, "")
 	pdf.Ln(2)
 
 	// Table header
@@ -272,14 +325,14 @@ func renderLanguages(pdf *fpdf.Fpdf, l *Languages) {
 	pdf.SetTextColor(0, 0, 0)
 	pdf.SetFillColor(230, 230, 230)
 	pdf.CellFormat(nameW, 6, "", "1", 0, "C", true, 0, "")
-	pdf.CellFormat(colW, 6, "Listening", "1", 0, "C", true, 0, "")
-	pdf.CellFormat(colW, 6, "Reading", "1", 0, "C", true, 0, "")
-	pdf.CellFormat(colW, 6, "Spoken prod.", "1", 0, "C", true, 0, "")
-	pdf.CellFormat(colW, 6, "Spoken int.", "1", 0, "C", true, 0, "")
-	pdf.CellFormat(colW, 6, "Writing", "1", 1, "C", true, 0, "")
+	pdf.CellFormat(colW, 6, l.Listening, "1", 0, "C", true, 0, "")
+	pdf.CellFormat(colW, 6, l.Reading, "1", 0, "C", true, 0, "")
+	pdf.CellFormat(colW, 6, l.SpokenProd, "1", 0, "C", true, 0, "")
+	pdf.CellFormat(colW, 6, l.SpokenInt, "1", 0, "C", true, 0, "")
+	pdf.CellFormat(colW, 6, l.Writing, "1", 1, "C", true, 0, "")
 
 	pdf.SetFont(fontFamily, "", 8)
-	for _, fl := range l.Foreign {
+	for _, fl := range lang.Foreign {
 		pdf.SetFont(fontFamily, "B", 8)
 		pdf.CellFormat(nameW, 5.5, fl.Name, "1", 0, "L", false, 0, "")
 		pdf.SetFont(fontFamily, "", 8)
@@ -293,7 +346,7 @@ func renderLanguages(pdf *fpdf.Fpdf, l *Languages) {
 
 	pdf.SetFont(fontFamily, "I", 7)
 	pdf.SetTextColor(grayR, grayG, grayB)
-	pdf.MultiCell(contentWidth, 3.5, "Levels: A1 and A2: Basic user; B1 and B2: Independent user; C1 and C2: Proficient user", "", "L", false)
+	pdf.MultiCell(contentWidth, 3.5, l.CEFRLegend, "", "L", false)
 	pdf.Ln(3)
 }
 
@@ -328,6 +381,12 @@ func toEuropassXML(cv *CV) []byte {
 	if cv.Personal.Phone != "" {
 		b.WriteString(fmt.Sprintf("        <Telephone><Contact>%s</Contact></Telephone>\n", xmlEsc(cv.Personal.Phone)))
 	}
+	if cv.Personal.Address != "" {
+		b.WriteString(fmt.Sprintf("        <Address><Contact><AddressLine>%s</AddressLine></Contact></Address>\n", xmlEsc(cv.Personal.Address)))
+	}
+	if cv.Personal.Website != "" {
+		b.WriteString(fmt.Sprintf("        <Website><Contact>%s</Contact></Website>\n", xmlEsc(cv.Personal.Website)))
+	}
 	b.WriteString("      </ContactInfo>\n")
 	b.WriteString("      <Demographics>\n")
 	if cv.Personal.DateOfBirth != "" {
@@ -339,11 +398,32 @@ func toEuropassXML(cv *CV) []byte {
 	b.WriteString("      </Demographics>\n")
 	b.WriteString("    </Identification>\n")
 
+	// Headline
+	if cv.Headline != "" {
+		b.WriteString(fmt.Sprintf("    <Headline><Type><Label>%s</Label></Type></Headline>\n", xmlEsc(cv.Headline)))
+	}
+
 	// Work experience
 	for _, w := range cv.Experience {
 		b.WriteString("    <WorkExperience>\n")
+		b.WriteString("      <Period>\n")
+		b.WriteString(fmt.Sprintf("        <From>%s</From>\n", xmlEsc(w.From)))
+		if w.To != "" {
+			b.WriteString(fmt.Sprintf("        <To>%s</To>\n", xmlEsc(w.To)))
+		}
+		b.WriteString("      </Period>\n")
 		b.WriteString(fmt.Sprintf("      <Position><Label>%s</Label></Position>\n", xmlEsc(w.Title)))
 		b.WriteString(fmt.Sprintf("      <Employer><Name>%s</Name></Employer>\n", xmlEsc(w.Employer)))
+		if w.Location != "" || w.Country != "" {
+			loc := w.Location
+			if w.Country != "" {
+				if loc != "" {
+					loc += ", "
+				}
+				loc += w.Country
+			}
+			b.WriteString(fmt.Sprintf("      <Employer><Address>%s</Address></Employer>\n", xmlEsc(loc)))
+		}
 		if w.Description != "" {
 			b.WriteString(fmt.Sprintf("      <Activities>%s</Activities>\n", xmlEsc(w.Description)))
 		}
@@ -353,16 +433,27 @@ func toEuropassXML(cv *CV) []byte {
 	// Education
 	for _, e := range cv.Education {
 		b.WriteString("    <Education>\n")
+		b.WriteString("      <Period>\n")
+		b.WriteString(fmt.Sprintf("        <From>%s</From>\n", xmlEsc(e.From)))
+		if e.To != "" {
+			b.WriteString(fmt.Sprintf("        <To>%s</To>\n", xmlEsc(e.To)))
+		}
+		b.WriteString("      </Period>\n")
 		b.WriteString(fmt.Sprintf("      <Title><Label>%s</Label></Title>\n", xmlEsc(e.Title)))
 		b.WriteString(fmt.Sprintf("      <Organisation><Name>%s</Name></Organisation>\n", xmlEsc(e.Institution)))
+		if e.Level != "" {
+			b.WriteString(fmt.Sprintf("      <Level><Label>%s</Label></Level>\n", xmlEsc(e.Level)))
+		}
 		if e.Description != "" {
 			b.WriteString(fmt.Sprintf("      <Activities>%s</Activities>\n", xmlEsc(e.Description)))
 		}
 		b.WriteString("    </Education>\n")
 	}
 
-	// Languages
+	// Skills
 	b.WriteString("    <Skills>\n")
+
+	// Languages
 	b.WriteString("      <Linguistic>\n")
 	for _, mt := range cv.Languages.MotherTongue {
 		b.WriteString(fmt.Sprintf("        <MotherTongue><Description><Label>%s</Label></Description></MotherTongue>\n", xmlEsc(mt)))
@@ -378,8 +469,24 @@ func toEuropassXML(cv *CV) []byte {
 		b.WriteString("        </ForeignLanguage>\n")
 	}
 	b.WriteString("      </Linguistic>\n")
-	b.WriteString("    </Skills>\n")
 
+	// Digital skills
+	if len(cv.Digital) > 0 {
+		b.WriteString(fmt.Sprintf("      <Computer>%s</Computer>\n", xmlEsc(strings.Join(cv.Digital, ", "))))
+	}
+
+	// Soft skills
+	if cv.Org != "" {
+		b.WriteString(fmt.Sprintf("      <Organisational>%s</Organisational>\n", xmlEsc(cv.Org)))
+	}
+	if cv.Comm != "" {
+		b.WriteString(fmt.Sprintf("      <Communication>%s</Communication>\n", xmlEsc(cv.Comm)))
+	}
+	if cv.JobRelated != "" {
+		b.WriteString(fmt.Sprintf("      <JobRelated>%s</JobRelated>\n", xmlEsc(cv.JobRelated)))
+	}
+
+	b.WriteString("    </Skills>\n")
 	b.WriteString("  </LearnerInfo>\n")
 	b.WriteString("</SkillsPassport>\n")
 	return []byte(b.String())

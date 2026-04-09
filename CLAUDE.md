@@ -3,6 +3,15 @@
 Go CLI for managing, tailoring, and generating Europass-format CVs.
 CV data is stored as `cv.json` — all modifications go through the CLI, no editor needed.
 
+## Interactive Mode
+
+```bash
+goepcvcli -i                                # guided menu for humans
+```
+
+Launches a menu-driven interface that walks through all operations
+with prompts, choices, defaults, and confirmations — no flags needed.
+
 ## Quick Reference
 
 ```bash
@@ -37,8 +46,8 @@ goepcvcli tailor --tags dev,go,architecture \
   --output dev-cv.json --pdf dev-cv.pdf
 
 # Generate PDF from any JSON
-goepcvcli generate -i cv.json -o cv.pdf
-goepcvcli generate -i dev-cv.json -o dev-cv.pdf
+goepcvcli generate -f cv.json -o cv.pdf
+goepcvcli generate -f dev-cv.json -o dev-cv.pdf
 ```
 
 ## Sections for show/set
