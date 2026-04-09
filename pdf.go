@@ -14,228 +14,316 @@ const (
 	pageWidth    = 210.0
 	contentWidth = pageWidth - marginLeft - marginRight
 
-	// Europass-style colors
-	headerR = 30
-	headerG = 60
-	headerB = 114
-
-	accentR = 0
-	accentG = 102
-	accentB = 153
-
 	grayR = 100
 	grayG = 100
 	grayB = 100
 )
 
-const (
-	fontDir    = "/usr/share/fonts/TTF"
-	fontFamily = "DejaVuSans"
-)
+// renderer bundles everything needed to render a CV page.
+type renderer struct {
+	pdf   *fpdf.Fpdf
+	fonts pdfFonts
+	style Style
+	label Labels
+}
 
-func generatePDF(cv *CV, output string) error {
+func newRenderer(cv *CV) (*renderer, error) {
+	style := cv.Style.resolved()
 	l := getLabels(cv.Lang)
 
-	pdf := fpdf.New("P", "mm", "A4", fontDir)
+	pdf := fpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(marginLeft, marginTop, marginRight)
 	pdf.SetAutoPageBreak(true, 20)
 
-	// Register UTF-8 fonts
-	pdf.AddUTF8Font(fontFamily, "", "DejaVuSansCondensed.ttf")
-	pdf.AddUTF8Font(fontFamily, "B", "DejaVuSansCondensed-Bold.ttf")
-	pdf.AddUTF8Font(fontFamily, "I", "DejaVuSansCondensed-Oblique.ttf")
-	pdf.AddUTF8Font(fontFamily, "BI", "DejaVuSansCondensed-BoldOblique.ttf")
+	fonts := setupFonts(pdf, style)
 
-	pdf.AddPage()
+	return &renderer{pdf: pdf, fonts: fonts, style: style, label: l}, nil
+}
 
-	renderPersonal(pdf, &cv.Personal, l)
-	renderSection(pdf, l.WorkExperience, func() {
+func (r *renderer) accent() (int, int, int) {
+	return r.style.Accent[0], r.style.Accent[1], r.style.Accent[2]
+}
+
+func (r *renderer) renderCV(cv *CV) {
+	r.pdf.AddPage()
+	l := r.label
+
+	switch r.style.Layout {
+	case "modern":
+		r.renderPersonalModern(&cv.Personal, cv.Headline)
+	default:
+		r.renderPersonalClassic(&cv.Personal, cv.Headline)
+	}
+
+	r.renderSection(l.WorkExperience, func() {
 		for _, w := range cv.Experience {
-			renderWork(pdf, &w, l)
+			r.renderWork(&w)
 		}
 	})
-	renderSection(pdf, l.Education, func() {
+	r.renderSection(l.Education, func() {
 		for _, e := range cv.Education {
-			renderEducation(pdf, &e, l)
+			r.renderEducation(&e)
 		}
 	})
-	renderSection(pdf, l.LanguageSkills, func() {
-		renderLanguages(pdf, &cv.Languages, l)
+	r.renderSection(l.LanguageSkills, func() {
+		r.renderLanguages(&cv.Languages)
 	})
-	renderSection(pdf, l.DigitalSkills, func() {
-		pdf.SetFont(fontFamily, "", 10)
-		pdf.SetTextColor(0, 0, 0)
-		pdf.MultiCell(contentWidth, 5, strings.Join(cv.Digital, "  |  "), "", "L", false)
-		pdf.Ln(3)
+	r.renderSection(l.DigitalSkills, func() {
+		r.setBody("", r.style.FontSize+1)
+		r.pdf.SetTextColor(0, 0, 0)
+
+		if r.style.Layout == "modern" {
+			r.renderSkillChips(cv.Digital)
+		} else {
+			r.pdf.MultiCell(contentWidth, 5, strings.Join(cv.Digital, "  \u2022  "), "", "L", false)
+		}
+		r.pdf.Ln(3)
 	})
 	if cv.Org != "" || cv.Comm != "" || cv.JobRelated != "" {
-		renderSection(pdf, l.AdditionalInfo, func() {
+		r.renderSection(l.AdditionalInfo, func() {
 			if cv.Org != "" {
-				renderSubSection(pdf, l.OrgSkills, cv.Org)
+				r.renderSubSection(l.OrgSkills, cv.Org)
 			}
 			if cv.Comm != "" {
-				renderSubSection(pdf, l.CommSkills, cv.Comm)
+				r.renderSubSection(l.CommSkills, cv.Comm)
 			}
 			if cv.JobRelated != "" {
-				renderSubSection(pdf, l.JobSkills, cv.JobRelated)
+				r.renderSubSection(l.JobSkills, cv.JobRelated)
 			}
 		})
 	}
-
-	// Embed Europass XML as attachment
-	xmlData := toEuropassXML(cv)
-	pdf.SetAttachments([]fpdf.Attachment{
-		{
-			Content:     xmlData,
-			Filename:    "Europass_CV.xml",
-			Description: "Europass CV XML data",
-		},
-	})
-
-	return pdf.OutputFileAndClose(output)
 }
 
-func generatePlainPDF(cv *CV, output string) error {
-	l := getLabels(cv.Lang)
+// --- Header font helpers ---
 
-	pdf := fpdf.New("P", "mm", "A4", fontDir)
-	pdf.SetMargins(marginLeft, marginTop, marginRight)
-	pdf.SetAutoPageBreak(true, 20)
-
-	pdf.AddUTF8Font(fontFamily, "", "DejaVuSansCondensed.ttf")
-	pdf.AddUTF8Font(fontFamily, "B", "DejaVuSansCondensed-Bold.ttf")
-	pdf.AddUTF8Font(fontFamily, "I", "DejaVuSansCondensed-Oblique.ttf")
-	pdf.AddUTF8Font(fontFamily, "BI", "DejaVuSansCondensed-BoldOblique.ttf")
-
-	pdf.AddPage()
-
-	renderPersonal(pdf, &cv.Personal, l)
-	renderSection(pdf, l.WorkExperience, func() {
-		for _, w := range cv.Experience {
-			renderWork(pdf, &w, l)
-		}
-	})
-	renderSection(pdf, l.Education, func() {
-		for _, e := range cv.Education {
-			renderEducation(pdf, &e, l)
-		}
-	})
-	renderSection(pdf, l.LanguageSkills, func() {
-		renderLanguages(pdf, &cv.Languages, l)
-	})
-	renderSection(pdf, l.DigitalSkills, func() {
-		pdf.SetFont(fontFamily, "", 10)
-		pdf.SetTextColor(0, 0, 0)
-		pdf.MultiCell(contentWidth, 5, strings.Join(cv.Digital, "  |  "), "", "L", false)
-		pdf.Ln(3)
-	})
-	if cv.Org != "" || cv.Comm != "" || cv.JobRelated != "" {
-		renderSection(pdf, l.AdditionalInfo, func() {
-			if cv.Org != "" {
-				renderSubSection(pdf, l.OrgSkills, cv.Org)
-			}
-			if cv.Comm != "" {
-				renderSubSection(pdf, l.CommSkills, cv.Comm)
-			}
-			if cv.JobRelated != "" {
-				renderSubSection(pdf, l.JobSkills, cv.JobRelated)
-			}
-		})
-	}
-
-	return pdf.OutputFileAndClose(output)
+func (r *renderer) setHeader(style string, size float64) {
+	r.pdf.SetFont(r.fonts.header.family, style, size)
 }
 
-func renderPersonal(pdf *fpdf.Fpdf, p *Personal, l Labels) {
+func (r *renderer) setBody(style string, size float64) {
+	r.pdf.SetFont(r.fonts.body.family, style, size)
+}
+
+func (r *renderer) writeBody(h float64, text, style string) {
+	r.fonts.writeWithFallback(r.pdf, h, text, r.fonts.body.family, style)
+}
+
+func (r *renderer) writeHeader(h float64, text, style string) {
+	r.fonts.writeWithFallback(r.pdf, h, text, r.fonts.header.family, style)
+}
+
+// --- Classic layout ---
+
+func (r *renderer) renderPersonalClassic(p *Personal, headline string) {
+	aR, aG, aB := r.accent()
+	pdf := r.pdf
+
 	// Name
-	pdf.SetFont(fontFamily, "B", 20)
-	pdf.SetTextColor(headerR, headerG, headerB)
-	pdf.CellFormat(contentWidth, 10, p.FirstName+" "+p.Surname, "", 1, "L", false, 0, "")
-	pdf.Ln(1)
+	r.setHeader("B", 22)
+	pdf.SetTextColor(aR, aG, aB)
+	r.writeHeader(10, p.FirstName+" "+p.Surname, "B")
+	pdf.Ln(12)
 
-	// Horizontal rule
-	pdf.SetDrawColor(headerR, headerG, headerB)
+	// Headline
+	if headline != "" {
+		r.setHeader("I", r.style.FontSize+2)
+		pdf.SetTextColor(aR, aG, aB)
+		r.writeHeader(6, headline, "I")
+		pdf.Ln(8)
+	}
+
+	// Accent bar
+	pdf.SetDrawColor(aR, aG, aB)
 	pdf.SetLineWidth(0.8)
 	pdf.Line(marginLeft, pdf.GetY(), pageWidth-marginRight, pdf.GetY())
-	pdf.Ln(3)
+	pdf.Ln(4)
 
-	// Contact details
-	pdf.SetFont(fontFamily, "", 9)
-	pdf.SetTextColor(0, 0, 0)
+	// Contact grid
+	r.setBody("", r.style.FontSize)
+	pdf.SetTextColor(60, 60, 60)
+	l := r.label
 
-	var details []string
-	if p.DateOfBirth != "" {
-		details = append(details, l.DateOfBirth+": "+p.DateOfBirth)
-	}
-	if p.Nationality != "" {
-		details = append(details, l.Nationality+": "+p.Nationality)
-	}
+	var row1, row2 []string
 	if p.Phone != "" {
-		details = append(details, l.Phone+": "+p.Phone)
+		row1 = append(row1, l.Phone+": "+p.Phone)
 	}
 	if p.Email != "" {
-		details = append(details, l.Email+": "+p.Email)
+		row1 = append(row1, l.Email+": "+p.Email)
 	}
-	if len(details) > 0 {
-		pdf.MultiCell(contentWidth, 4.5, strings.Join(details, "  |  "), "", "L", false)
+	if p.DateOfBirth != "" {
+		row1 = append(row1, l.DateOfBirth+": "+p.DateOfBirth)
+	}
+	if p.Nationality != "" {
+		row1 = append(row1, l.Nationality+": "+p.Nationality)
+	}
+	if len(row1) > 0 {
+		pdf.MultiCell(contentWidth, 4.5, strings.Join(row1, "  |  "), "", "L", false)
 	}
 
-	var links []string
 	if p.Website != "" {
-		links = append(links, l.Website+": "+p.Website)
+		row2 = append(row2, l.Website+": "+p.Website)
 	}
 	if p.GitHub != "" {
-		links = append(links, "GitHub: "+p.GitHub)
+		row2 = append(row2, "GitHub: "+p.GitHub)
 	}
 	if p.LinkedIn != "" {
-		links = append(links, "LinkedIn: "+p.LinkedIn)
+		row2 = append(row2, "LinkedIn: "+p.LinkedIn)
 	}
 	for _, kv := range p.Extra {
-		links = append(links, kv.Key+": "+kv.Value)
+		row2 = append(row2, kv.Key+": "+kv.Value)
 	}
-	if len(links) > 0 {
-		pdf.MultiCell(contentWidth, 4.5, strings.Join(links, "  |  "), "", "L", false)
+	if len(row2) > 0 {
+		pdf.MultiCell(contentWidth, 4.5, strings.Join(row2, "  |  "), "", "L", false)
 	}
-
 	if p.Address != "" {
 		pdf.CellFormat(contentWidth, 4.5, l.Address+": "+p.Address, "", 1, "L", false, 0, "")
 	}
 	pdf.Ln(5)
 }
 
-func renderSection(pdf *fpdf.Fpdf, title string, content func()) {
-	// Bullet + title
-	pdf.SetFont(fontFamily, "B", 13)
-	pdf.SetTextColor(headerR, headerG, headerB)
+// --- Modern layout ---
 
-	// Small filled circle as bullet
-	y := pdf.GetY() + 4
-	pdf.SetFillColor(headerR, headerG, headerB)
-	pdf.Circle(marginLeft+2, y, 2.5, "F")
+func (r *renderer) renderPersonalModern(p *Personal, headline string) {
+	aR, aG, aB := r.accent()
+	pdf := r.pdf
 
-	pdf.SetX(marginLeft + 8)
-	pdf.CellFormat(contentWidth-8, 10, title, "", 1, "L", false, 0, "")
+	// Colored accent band on the left
+	bandW := 4.0
+	startY := marginTop
+	pdf.SetFillColor(aR, aG, aB)
+	pdf.Rect(marginLeft, startY, bandW, 30, "F")
 
-	// Rule under section header
-	pdf.SetDrawColor(grayR, grayG, grayB)
-	pdf.SetLineWidth(0.3)
-	pdf.Line(marginLeft+8, pdf.GetY(), pageWidth-marginRight, pdf.GetY())
-	pdf.Ln(3)
+	// Name next to the band
+	r.setHeader("B", 24)
+	pdf.SetTextColor(aR, aG, aB)
+	pdf.SetXY(marginLeft+bandW+4, startY+2)
+	r.writeHeader(10, p.FirstName+" "+p.Surname, "B")
+	pdf.Ln(10)
+
+	// Headline
+	if headline != "" {
+		r.setBody("I", r.style.FontSize+1)
+		pdf.SetTextColor(80, 80, 80)
+		pdf.SetX(marginLeft + bandW + 4)
+		r.writeBody(5, headline, "I")
+		pdf.Ln(8)
+	}
+
+	pdf.SetY(startY + 34)
+
+	// Contact in two columns
+	r.setBody("", r.style.FontSize-0.5)
+	pdf.SetTextColor(60, 60, 60)
+	l := r.label
+	halfW := contentWidth / 2
+
+	type kv struct{ k, v string }
+	var left, right []kv
+	if p.Phone != "" {
+		left = append(left, kv{l.Phone, p.Phone})
+	}
+	if p.Email != "" {
+		left = append(left, kv{l.Email, p.Email})
+	}
+	if p.Website != "" {
+		left = append(left, kv{l.Website, p.Website})
+	}
+	if p.Address != "" {
+		left = append(left, kv{l.Address, p.Address})
+	}
+	if p.DateOfBirth != "" {
+		right = append(right, kv{l.DateOfBirth, p.DateOfBirth})
+	}
+	if p.Nationality != "" {
+		right = append(right, kv{l.Nationality, p.Nationality})
+	}
+	if p.GitHub != "" {
+		right = append(right, kv{"GitHub", p.GitHub})
+	}
+	if p.LinkedIn != "" {
+		right = append(right, kv{"LinkedIn", p.LinkedIn})
+	}
+	for _, e := range p.Extra {
+		right = append(right, kv{e.Key, e.Value})
+	}
+
+	rows := len(left)
+	if len(right) > rows {
+		rows = len(right)
+	}
+	for i := 0; i < rows; i++ {
+		y := pdf.GetY()
+		if i < len(left) {
+			pdf.SetXY(marginLeft, y)
+			r.setBody("B", r.style.FontSize-0.5)
+			pdf.CellFormat(22, 4.5, left[i].k+":", "", 0, "R", false, 0, "")
+			r.setBody("", r.style.FontSize-0.5)
+			pdf.CellFormat(halfW-22, 4.5, " "+left[i].v, "", 0, "L", false, 0, "")
+		}
+		if i < len(right) {
+			pdf.SetXY(marginLeft+halfW, y)
+			r.setBody("B", r.style.FontSize-0.5)
+			pdf.CellFormat(22, 4.5, right[i].k+":", "", 0, "R", false, 0, "")
+			r.setBody("", r.style.FontSize-0.5)
+			pdf.CellFormat(halfW-22, 4.5, " "+right[i].v, "", 0, "L", false, 0, "")
+		}
+		pdf.Ln(4.5)
+	}
+	pdf.Ln(5)
+}
+
+// --- Shared rendering ---
+
+func (r *renderer) renderSection(title string, content func()) {
+	aR, aG, aB := r.accent()
+	pdf := r.pdf
+
+	switch r.style.Layout {
+	case "modern":
+		// Accent bar on left + title
+		y := pdf.GetY()
+		pdf.SetFillColor(aR, aG, aB)
+		pdf.Rect(marginLeft, y+1, 3, 8, "F")
+
+		r.setHeader("B", 12)
+		pdf.SetTextColor(aR, aG, aB)
+		pdf.SetX(marginLeft + 7)
+		pdf.CellFormat(contentWidth-7, 10, title, "", 1, "L", false, 0, "")
+		pdf.Ln(1)
+
+	default: // classic
+		r.setHeader("B", 13)
+		pdf.SetTextColor(aR, aG, aB)
+
+		y := pdf.GetY() + 4
+		pdf.SetFillColor(aR, aG, aB)
+		pdf.Circle(marginLeft+2, y, 2.5, "F")
+
+		pdf.SetX(marginLeft + 8)
+		pdf.CellFormat(contentWidth-8, 10, title, "", 1, "L", false, 0, "")
+
+		pdf.SetDrawColor(grayR, grayG, grayB)
+		pdf.SetLineWidth(0.3)
+		pdf.Line(marginLeft+8, pdf.GetY(), pageWidth-marginRight, pdf.GetY())
+		pdf.Ln(3)
+	}
 
 	content()
 	pdf.Ln(2)
 }
 
-func renderWork(pdf *fpdf.Fpdf, w *Work, l Labels) {
-	// Date range + location
-	pdf.SetFont(fontFamily, "", 9)
-	pdf.SetTextColor(grayR, grayG, grayB)
+func (r *renderer) renderWork(w *Work) {
+	pdf := r.pdf
+	l := r.label
+	fs := r.style.FontSize
+
 	period := w.From
 	if w.To != "" {
 		period += " \u2013 " + w.To
 	} else {
 		period += " \u2013 " + l.Present
 	}
+
 	loc := ""
 	if w.Location != "" {
 		loc = w.Location
@@ -243,34 +331,84 @@ func renderWork(pdf *fpdf.Fpdf, w *Work, l Labels) {
 			loc += ", " + w.Country
 		}
 	}
-	if loc != "" {
-		period += "  " + loc
-	}
-	pdf.CellFormat(contentWidth, 4.5, period, "", 1, "L", false, 0, "")
 
-	// Title on one line, employer on same line right-aligned won't fit — put employer after title
-	pdf.SetFont(fontFamily, "B", 10)
-	pdf.SetTextColor(0, 0, 0)
-	titleStr := strings.ToUpper(w.Title)
-	pdf.CellFormat(0, 5.5, titleStr+" "+w.Employer, "", 1, "L", false, 0, "")
-	pdf.Ln(1)
+	switch r.style.Layout {
+	case "modern":
+		// Two-column: date left, content right
+		dateW := r.style.DateColumn
+		contentW := contentWidth - dateW - 3
 
-	// Description
-	if w.Description != "" {
-		pdf.SetFont(fontFamily, "", 9)
-		pdf.SetTextColor(50, 50, 50)
-		pdf.MultiCell(contentWidth, 4.5, w.Description, "", "L", false)
+		y := pdf.GetY()
+		r.setBody("", fs-0.5)
+		pdf.SetTextColor(grayR, grayG, grayB)
+		pdf.SetXY(marginLeft, y)
+		pdf.MultiCell(dateW, 4.5, period, "", "R", false)
+		dateEndY := pdf.GetY()
+		if loc != "" {
+			pdf.SetX(marginLeft)
+			r.setBody("I", fs-1)
+			pdf.MultiCell(dateW, 4, loc, "", "R", false)
+			dateEndY = pdf.GetY()
+		}
+
+		pdf.SetXY(marginLeft+dateW+3, y)
+		r.setBody("B", fs+1)
+		pdf.SetTextColor(0, 0, 0)
+		pdf.CellFormat(contentW, 5.5, w.Title, "", 2, "L", false, 0, "")
+		r.setBody("", fs)
+		aR, aG, aB := r.accent()
+		pdf.SetTextColor(aR, aG, aB)
+		pdf.CellFormat(contentW, 4.5, w.Employer, "", 2, "L", false, 0, "")
+		pdf.Ln(1)
+
+		if w.Description != "" {
+			pdf.SetX(marginLeft + dateW + 3)
+			r.setBody("", fs)
+			pdf.SetTextColor(50, 50, 50)
+			pdf.MultiCell(contentW, 4.5, w.Description, "", "L", false)
+		}
+		if pdf.GetY() < dateEndY {
+			pdf.SetY(dateEndY)
+		}
+		pdf.Ln(4)
+
+	default: // classic
+		r.setBody("", fs)
+		pdf.SetTextColor(grayR, grayG, grayB)
+		line := period
+		if loc != "" {
+			line += "  \u2022  " + loc
+		}
+		pdf.CellFormat(contentWidth, 4.5, line, "", 1, "L", false, 0, "")
+
+		r.setBody("B", fs+1)
+		pdf.SetTextColor(0, 0, 0)
+		pdf.CellFormat(0, 5.5, w.Title, "", 0, "L", false, 0, "")
+		aR, aG, aB := r.accent()
+		r.setBody("", fs+1)
+		pdf.SetTextColor(aR, aG, aB)
+		pdf.CellFormat(0, 5.5, "  "+w.Employer, "", 1, "L", false, 0, "")
+		pdf.Ln(1)
+
+		if w.Description != "" {
+			r.setBody("", fs)
+			pdf.SetTextColor(50, 50, 50)
+			pdf.MultiCell(contentWidth, 4.5, w.Description, "", "L", false)
+		}
+		pdf.Ln(3)
 	}
-	pdf.Ln(3)
 }
 
-func renderEducation(pdf *fpdf.Fpdf, e *Education, l Labels) {
-	pdf.SetFont(fontFamily, "", 9)
-	pdf.SetTextColor(grayR, grayG, grayB)
+func (r *renderer) renderEducation(e *Education) {
+	pdf := r.pdf
+	l := r.label
+	fs := r.style.FontSize
+
 	period := e.From
 	if e.To != "" {
 		period += " \u2013 " + e.To
 	}
+
 	loc := ""
 	if e.Location != "" {
 		loc = e.Location
@@ -278,32 +416,83 @@ func renderEducation(pdf *fpdf.Fpdf, e *Education, l Labels) {
 			loc += ", " + e.Country
 		}
 	}
-	if loc != "" {
-		period += "  " + loc
-	}
-	pdf.CellFormat(contentWidth, 4.5, period, "", 1, "L", false, 0, "")
 
-	pdf.SetFont(fontFamily, "B", 10)
-	pdf.SetTextColor(0, 0, 0)
-	pdf.CellFormat(0, 5.5, strings.ToUpper(e.Title)+" "+e.Institution, "", 1, "L", false, 0, "")
+	switch r.style.Layout {
+	case "modern":
+		dateW := r.style.DateColumn
+		contentW := contentWidth - dateW - 3
 
-	if e.Level != "" {
-		pdf.SetFont(fontFamily, "", 9)
+		y := pdf.GetY()
+		r.setBody("", fs-0.5)
 		pdf.SetTextColor(grayR, grayG, grayB)
-		pdf.CellFormat(contentWidth, 4.5, l.Level+": "+e.Level, "", 1, "L", false, 0, "")
-	}
+		pdf.SetXY(marginLeft, y)
+		pdf.MultiCell(dateW, 4.5, period, "", "R", false)
+		if loc != "" {
+			pdf.SetX(marginLeft)
+			r.setBody("I", fs-1)
+			pdf.MultiCell(dateW, 4, loc, "", "R", false)
+		}
 
-	if e.Description != "" {
-		pdf.SetFont(fontFamily, "", 9)
-		pdf.SetTextColor(50, 50, 50)
-		pdf.MultiCell(contentWidth, 4.5, e.Description, "", "L", false)
+		pdf.SetXY(marginLeft+dateW+3, y)
+		r.setBody("B", fs+1)
+		pdf.SetTextColor(0, 0, 0)
+		pdf.CellFormat(contentW, 5.5, e.Title, "", 2, "L", false, 0, "")
+		aR, aG, aB := r.accent()
+		r.setBody("", fs)
+		pdf.SetTextColor(aR, aG, aB)
+		pdf.CellFormat(contentW, 4.5, e.Institution, "", 2, "L", false, 0, "")
+
+		if e.Level != "" {
+			r.setBody("I", fs-0.5)
+			pdf.SetTextColor(grayR, grayG, grayB)
+			pdf.CellFormat(contentW, 4, l.Level+": "+e.Level, "", 2, "L", false, 0, "")
+		}
+		if e.Description != "" {
+			r.setBody("", fs)
+			pdf.SetTextColor(50, 50, 50)
+			pdf.SetX(marginLeft + dateW + 3)
+			pdf.MultiCell(contentW, 4.5, e.Description, "", "L", false)
+		}
+		pdf.Ln(4)
+
+	default: // classic
+		r.setBody("", fs)
+		pdf.SetTextColor(grayR, grayG, grayB)
+		line := period
+		if loc != "" {
+			line += "  \u2022  " + loc
+		}
+		pdf.CellFormat(contentWidth, 4.5, line, "", 1, "L", false, 0, "")
+
+		r.setBody("B", fs+1)
+		pdf.SetTextColor(0, 0, 0)
+		pdf.CellFormat(0, 5.5, e.Title, "", 0, "L", false, 0, "")
+		aR, aG, aB := r.accent()
+		r.setBody("", fs+1)
+		pdf.SetTextColor(aR, aG, aB)
+		pdf.CellFormat(0, 5.5, "  "+e.Institution, "", 1, "L", false, 0, "")
+
+		if e.Level != "" {
+			r.setBody("I", fs-0.5)
+			pdf.SetTextColor(grayR, grayG, grayB)
+			pdf.CellFormat(contentWidth, 4.5, l.Level+": "+e.Level, "", 1, "L", false, 0, "")
+		}
+		if e.Description != "" {
+			r.setBody("", fs)
+			pdf.SetTextColor(50, 50, 50)
+			pdf.MultiCell(contentWidth, 4.5, e.Description, "", "L", false)
+		}
+		pdf.Ln(3)
 	}
-	pdf.Ln(3)
 }
 
-func renderLanguages(pdf *fpdf.Fpdf, lang *Languages, l Labels) {
-	// Mother tongue
-	pdf.SetFont(fontFamily, "", 10)
+func (r *renderer) renderLanguages(lang *Languages) {
+	aR, aG, aB := r.accent()
+	pdf := r.pdf
+	l := r.label
+	fs := r.style.FontSize
+
+	r.setBody("", fs+1)
 	pdf.SetTextColor(0, 0, 0)
 	pdf.CellFormat(contentWidth, 5.5, l.MotherTongue+": "+strings.Join(lang.MotherTongue, ", "), "", 1, "L", false, 0, "")
 	pdf.Ln(2)
@@ -312,18 +501,18 @@ func renderLanguages(pdf *fpdf.Fpdf, lang *Languages, l Labels) {
 		return
 	}
 
-	pdf.SetFont(fontFamily, "", 9)
+	r.setBody("", fs)
 	pdf.SetTextColor(grayR, grayG, grayB)
 	pdf.CellFormat(contentWidth, 4.5, l.OtherLanguages+":", "", 1, "L", false, 0, "")
 	pdf.Ln(2)
 
-	// Table header
 	colW := contentWidth / 6
 	nameW := colW
 
-	pdf.SetFont(fontFamily, "B", 8)
-	pdf.SetTextColor(0, 0, 0)
-	pdf.SetFillColor(230, 230, 230)
+	// Table header with accent color
+	r.setBody("B", fs-1)
+	pdf.SetTextColor(255, 255, 255)
+	pdf.SetFillColor(aR, aG, aB)
 	pdf.CellFormat(nameW, 6, "", "1", 0, "C", true, 0, "")
 	pdf.CellFormat(colW, 6, l.Listening, "1", 0, "C", true, 0, "")
 	pdf.CellFormat(colW, 6, l.Reading, "1", 0, "C", true, 0, "")
@@ -331,34 +520,100 @@ func renderLanguages(pdf *fpdf.Fpdf, lang *Languages, l Labels) {
 	pdf.CellFormat(colW, 6, l.SpokenInt, "1", 0, "C", true, 0, "")
 	pdf.CellFormat(colW, 6, l.Writing, "1", 1, "C", true, 0, "")
 
-	pdf.SetFont(fontFamily, "", 8)
-	for _, fl := range lang.Foreign {
-		pdf.SetFont(fontFamily, "B", 8)
-		pdf.CellFormat(nameW, 5.5, fl.Name, "1", 0, "L", false, 0, "")
-		pdf.SetFont(fontFamily, "", 8)
-		pdf.CellFormat(colW, 5.5, fl.Listening, "1", 0, "C", false, 0, "")
-		pdf.CellFormat(colW, 5.5, fl.Reading, "1", 0, "C", false, 0, "")
-		pdf.CellFormat(colW, 5.5, fl.SpokenProduction, "1", 0, "C", false, 0, "")
-		pdf.CellFormat(colW, 5.5, fl.SpokenInteraction, "1", 0, "C", false, 0, "")
-		pdf.CellFormat(colW, 5.5, fl.Writing, "1", 1, "C", false, 0, "")
+	r.setBody("", fs-1)
+	for i, fl := range lang.Foreign {
+		if i%2 == 0 {
+			pdf.SetFillColor(245, 245, 250)
+		} else {
+			pdf.SetFillColor(255, 255, 255)
+		}
+		fill := true
+		r.setBody("B", fs-1)
+		pdf.SetTextColor(0, 0, 0)
+		pdf.CellFormat(nameW, 5.5, fl.Name, "1", 0, "L", fill, 0, "")
+		r.setBody("", fs-1)
+		pdf.CellFormat(colW, 5.5, fl.Listening, "1", 0, "C", fill, 0, "")
+		pdf.CellFormat(colW, 5.5, fl.Reading, "1", 0, "C", fill, 0, "")
+		pdf.CellFormat(colW, 5.5, fl.SpokenProduction, "1", 0, "C", fill, 0, "")
+		pdf.CellFormat(colW, 5.5, fl.SpokenInteraction, "1", 0, "C", fill, 0, "")
+		pdf.CellFormat(colW, 5.5, fl.Writing, "1", 1, "C", fill, 0, "")
 	}
 	pdf.Ln(2)
 
-	pdf.SetFont(fontFamily, "I", 7)
+	r.setBody("I", fs-2)
 	pdf.SetTextColor(grayR, grayG, grayB)
 	pdf.MultiCell(contentWidth, 3.5, l.CEFRLegend, "", "L", false)
 	pdf.Ln(3)
 }
 
-func renderSubSection(pdf *fpdf.Fpdf, title, text string) {
-	pdf.SetFont(fontFamily, "B", 10)
-	pdf.SetTextColor(headerR, headerG, headerB)
+func (r *renderer) renderSkillChips(skills []string) {
+	pdf := r.pdf
+	aR, aG, aB := r.accent()
+	fs := r.style.FontSize
+
+	chipH := 5.5
+	chipPad := 3.0
+	chipGap := 2.0
+	x := marginLeft
+	y := pdf.GetY()
+
+	r.setBody("", fs-0.5)
+	for _, skill := range skills {
+		w := pdf.GetStringWidth(skill) + chipPad*2
+		if x+w > pageWidth-marginRight {
+			x = marginLeft
+			y += chipH + chipGap
+		}
+		// Light accent background, accent border
+		pdf.SetFillColor(aR, aG, aB)
+		pdf.SetDrawColor(aR, aG, aB)
+		pdf.SetTextColor(255, 255, 255)
+		pdf.RoundedRect(x, y, w, chipH, 2, "1234", "FD")
+		pdf.SetXY(x+chipPad, y+0.5)
+		pdf.CellFormat(w-chipPad*2, chipH-1, skill, "", 0, "C", false, 0, "")
+		x += w + chipGap
+	}
+	pdf.SetY(y + chipH + 2)
+}
+
+func (r *renderer) renderSubSection(title, text string) {
+	aR, aG, aB := r.accent()
+	pdf := r.pdf
+	fs := r.style.FontSize
+
+	r.setBody("B", fs+0.5)
+	pdf.SetTextColor(aR, aG, aB)
 	pdf.CellFormat(contentWidth, 6, title, "", 1, "L", false, 0, "")
 
-	pdf.SetFont(fontFamily, "", 9)
+	r.setBody("", fs)
 	pdf.SetTextColor(50, 50, 50)
 	pdf.MultiCell(contentWidth, 4.5, text, "", "L", false)
 	pdf.Ln(3)
+}
+
+// --- Public entry points ---
+
+func generatePDF(cv *CV, output string) error {
+	r, err := newRenderer(cv)
+	if err != nil {
+		return err
+	}
+	r.renderCV(cv)
+
+	xmlData := toEuropassXML(cv)
+	r.pdf.SetAttachments([]fpdf.Attachment{
+		{Content: xmlData, Filename: "Europass_CV.xml", Description: "Europass CV XML data"},
+	})
+	return r.pdf.OutputFileAndClose(output)
+}
+
+func generatePlainPDF(cv *CV, output string) error {
+	r, err := newRenderer(cv)
+	if err != nil {
+		return err
+	}
+	r.renderCV(cv)
+	return r.pdf.OutputFileAndClose(output)
 }
 
 func toEuropassXML(cv *CV) []byte {
@@ -368,7 +623,6 @@ func toEuropassXML(cv *CV) []byte {
 	b.WriteString(`xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">` + "\n")
 	b.WriteString("  <LearnerInfo>\n")
 
-	// Identification
 	b.WriteString("    <Identification>\n")
 	b.WriteString("      <PersonName>\n")
 	b.WriteString(fmt.Sprintf("        <FirstName>%s</FirstName>\n", xmlEsc(cv.Personal.FirstName)))
@@ -398,12 +652,10 @@ func toEuropassXML(cv *CV) []byte {
 	b.WriteString("      </Demographics>\n")
 	b.WriteString("    </Identification>\n")
 
-	// Headline
 	if cv.Headline != "" {
 		b.WriteString(fmt.Sprintf("    <Headline><Type><Label>%s</Label></Type></Headline>\n", xmlEsc(cv.Headline)))
 	}
 
-	// Work experience
 	for _, w := range cv.Experience {
 		b.WriteString("    <WorkExperience>\n")
 		b.WriteString("      <Period>\n")
@@ -430,7 +682,6 @@ func toEuropassXML(cv *CV) []byte {
 		b.WriteString("    </WorkExperience>\n")
 	}
 
-	// Education
 	for _, e := range cv.Education {
 		b.WriteString("    <Education>\n")
 		b.WriteString("      <Period>\n")
@@ -450,10 +701,7 @@ func toEuropassXML(cv *CV) []byte {
 		b.WriteString("    </Education>\n")
 	}
 
-	// Skills
 	b.WriteString("    <Skills>\n")
-
-	// Languages
 	b.WriteString("      <Linguistic>\n")
 	for _, mt := range cv.Languages.MotherTongue {
 		b.WriteString(fmt.Sprintf("        <MotherTongue><Description><Label>%s</Label></Description></MotherTongue>\n", xmlEsc(mt)))
@@ -469,13 +717,9 @@ func toEuropassXML(cv *CV) []byte {
 		b.WriteString("        </ForeignLanguage>\n")
 	}
 	b.WriteString("      </Linguistic>\n")
-
-	// Digital skills
 	if len(cv.Digital) > 0 {
 		b.WriteString(fmt.Sprintf("      <Computer>%s</Computer>\n", xmlEsc(strings.Join(cv.Digital, ", "))))
 	}
-
-	// Soft skills
 	if cv.Org != "" {
 		b.WriteString(fmt.Sprintf("      <Organisational>%s</Organisational>\n", xmlEsc(cv.Org)))
 	}
@@ -485,7 +729,6 @@ func toEuropassXML(cv *CV) []byte {
 	if cv.JobRelated != "" {
 		b.WriteString(fmt.Sprintf("      <JobRelated>%s</JobRelated>\n", xmlEsc(cv.JobRelated)))
 	}
-
 	b.WriteString("    </Skills>\n")
 	b.WriteString("  </LearnerInfo>\n")
 	b.WriteString("</SkillsPassport>\n")
