@@ -1,0 +1,5 @@
+goepcvcli
+*.pdf
+cv.json
+dev-cv.json
+*-cv.json
